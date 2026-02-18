@@ -39,6 +39,13 @@ App runs on `http://localhost:3000` by default.
 
 Use `.env` locally. For production, use an external env file in `/etc/todo-tracker/todo-tracker.env`.
 
+Required for login:
+
+- `AUTH_USERNAME`
+- `AUTH_PASSWORD`
+- `AUTH_SESSION_SECRET`
+- `AUTH_SESSION_MAX_AGE_HOURS`
+
 Required for email:
 
 - `SMTP_HOST`

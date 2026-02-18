@@ -25,6 +25,14 @@ export const config = {
     from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
   },
   enableScheduledEmails: toBool(process.env.ENABLE_SCHEDULED_EMAILS, true),
+  auth: {
+    username: process.env.AUTH_USERNAME ?? "admin",
+    password: process.env.AUTH_PASSWORD_B64
+      ? Buffer.from(process.env.AUTH_PASSWORD_B64, "base64").toString("utf-8")
+      : process.env.AUTH_PASSWORD ?? "change-me",
+    sessionSecret: process.env.AUTH_SESSION_SECRET ?? "change-this-session-secret",
+    sessionMaxAgeHours: Number(process.env.AUTH_SESSION_MAX_AGE_HOURS ?? 12),
+  },
 };
 
 export const hasSmtpConfig = (): boolean => {

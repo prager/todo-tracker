@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import express from "express";
 import path from "path";
 import { config } from "./config";
@@ -6,7 +7,6 @@ import {
   deleteTodoById,
   getDb,
   getEmailRecipient,
-  getTodoById,
   listTodos,
   setEmailRecipient,
   setTodoCompleted,
@@ -24,8 +24,10 @@ import { setupSchedulers } from "./scheduler";
 import type { ReportPeriod } from "./types";
 
 const app = express();
+const publicDir = path.join(process.cwd(), "public");
+const authCookieName = "todo_tracker_auth";
+
 app.use(express.json());
-app.use(express.static(path.join(process.cwd(), "public")));
 
 const parsePeriod = (value: string): ReportPeriod | null => {
   if (value === "daily" || value === "weekly" || value === "monthly") {
@@ -53,9 +55,137 @@ const parseStartDate = (value: string | undefined): Date | null => {
 
 const isValidEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
+const parseCookies = (header: string | undefined): Record<string, string> => {
+  if (!header) {
+    return {};
+  }
+
+  return header.split(";").reduce<Record<string, string>>((acc, part) => {
+    const [rawKey, ...rawValue] = part.trim().split("=");
+    if (!rawKey || rawValue.length === 0) {
+      return acc;
+    }
+    acc[rawKey] = decodeURIComponent(rawValue.join("="));
+    return acc;
+  }, {});
+};
+
+const signValue = (value: string): string => {
+  return crypto.createHmac("sha256", config.auth.sessionSecret).update(value).digest("hex");
+};
+
+const createAuthToken = (username: string): string => {
+  const expiresAt = Date.now() + config.auth.sessionMaxAgeHours * 60 * 60 * 1000;
+  const payload = Buffer.from(JSON.stringify({ u: username, e: expiresAt })).toString("base64url");
+  const signature = signValue(payload);
+  return `${payload}.${signature}`;
+};
+
+const readAuthUser = (req: express.Request): string | null => {
+  const cookies = parseCookies(req.headers.cookie);
+  const token = cookies[authCookieName];
+  if (!token) {
+    return null;
+  }
+
+  const [payload, signature] = token.split(".");
+  if (!payload || !signature) {
+    return null;
+  }
+
+  const expectedSignature = signValue(payload);
+  if (signature !== expectedSignature) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf-8")) as {
+      u?: string;
+      e?: number;
+    };
+
+    if (!parsed.u || !parsed.e || Date.now() > parsed.e) {
+      return null;
+    }
+
+    return parsed.u;
+  } catch {
+    return null;
+  }
+};
+
+const setAuthCookie = (res: express.Response, username: string) => {
+  const token = createAuthToken(username);
+  const maxAge = config.auth.sessionMaxAgeHours * 60 * 60;
+  const secure = config.nodeEnv === "production";
+  res.setHeader(
+    "Set-Cookie",
+    `${authCookieName}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? "; Secure" : ""}`,
+  );
+};
+
+const clearAuthCookie = (res: express.Response) => {
+  const secure = config.nodeEnv === "production";
+  res.setHeader(
+    "Set-Cookie",
+    `${authCookieName}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure ? "; Secure" : ""}`,
+  );
+};
+
+const requireApiAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const user = readAuthUser(req);
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  next();
+};
+
+const requireWebAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const user = readAuthUser(req);
+  if (!user) {
+    res.redirect("/login");
+    return;
+  }
+  next();
+};
+
+app.get("/login", (req, res) => {
+  if (readAuthUser(req)) {
+    res.redirect("/");
+    return;
+  }
+  res.sendFile(path.join(publicDir, "login.html"));
+});
+
+app.post("/api/auth/login", (req, res) => {
+  const username = typeof req.body.username === "string" ? req.body.username.trim() : "";
+  const password = typeof req.body.password === "string" ? req.body.password : "";
+
+  if (username !== config.auth.username || password !== config.auth.password) {
+    res.status(401).json({ error: "Invalid credentials" });
+    return;
+  }
+
+  setAuthCookie(res, username);
+  res.json({ ok: true });
+});
+
+app.post("/api/auth/logout", (_req, res) => {
+  clearAuthCookie(res);
+  res.json({ ok: true });
+});
+
+app.get("/api/auth/status", (req, res) => {
+  const user = readAuthUser(req);
+  res.json({ authenticated: Boolean(user), user: user ?? null });
+});
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, env: config.nodeEnv, baseUrl: config.baseUrl });
 });
+
+app.use("/api", requireApiAuth);
 
 app.get("/api/settings/email", async (_req, res) => {
   const email = await getEmailRecipient();
@@ -275,6 +405,20 @@ app.get("/api/reports/:period/download", async (req, res) => {
   res.setHeader("Content-Disposition", `attachment; filename=\"${filename}\"`);
   res.send(txt);
 });
+
+app.get("/", requireWebAuth, (_req, res) => {
+  res.sendFile(path.join(publicDir, "index.html"));
+});
+
+app.get("/index.html", requireWebAuth, (_req, res) => {
+  res.sendFile(path.join(publicDir, "index.html"));
+});
+
+app.get("/app.js", requireWebAuth, (_req, res) => {
+  res.sendFile(path.join(publicDir, "app.js"));
+});
+
+app.use(express.static(publicDir));
 
 const bootstrap = async () => {
   await getDb();

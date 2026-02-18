@@ -26,6 +26,7 @@ const paginationInfo = document.getElementById("paginationInfo");
 const prevPageBtn = document.getElementById("prevPageBtn");
 const nextPageBtn = document.getElementById("nextPageBtn");
 const footerYear = document.getElementById("footerYear");
+const logoutBtn = document.getElementById("logoutBtn");
 let editingTodoId = null;
 const sortState = { key: null, direction: "asc" };
 const pageSize = 12;
@@ -68,15 +69,24 @@ const truncateText = (value, maxLength = 35) => {
 };
 
 const fetchTodos = async () => {
-  const response = await fetch("/api/todos?status=all");
+  const response = await apiFetch("/api/todos?status=all");
   if (!response.ok) {
     throw new Error("Failed to load tasks");
   }
   return response.json();
 };
 
+const apiFetch = async (url, options) => {
+  const response = await fetch(url, options);
+  if (response.status === 401) {
+    window.location.href = "/login";
+    throw new Error("Unauthorized");
+  }
+  return response;
+};
+
 const loadRecipientEmail = async () => {
-  const response = await fetch("/api/settings/email");
+  const response = await apiFetch("/api/settings/email");
   if (!response.ok) {
     throw new Error("Failed to load email settings");
   }
@@ -86,7 +96,7 @@ const loadRecipientEmail = async () => {
 };
 
 const saveRecipientEmail = async (email) => {
-  const response = await fetch("/api/settings/email", {
+  const response = await apiFetch("/api/settings/email", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
@@ -276,7 +286,7 @@ const renderTodos = async () => {
             await completeTodo(todo.id, emailOnComplete.checked);
             showAlert("success", "Task marked as completed.", true);
           } else if (actionBtn.dataset.action === "reopen") {
-            await fetch(`/api/todos/${todo.id}/reopen`, { method: "PATCH" });
+            await apiFetch(`/api/todos/${todo.id}/reopen`, { method: "PATCH" });
             showAlert("info", "Task reopened.", true);
           } else if (actionBtn.dataset.action === "edit-note") {
             editingTodoId = todo.id;
@@ -307,7 +317,7 @@ const renderTodos = async () => {
 };
 
 const createTodo = async (payload) => {
-  const response = await fetch("/api/todos", {
+  const response = await apiFetch("/api/todos", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -320,7 +330,7 @@ const createTodo = async (payload) => {
 };
 
 const completeTodo = async (id, emailNow) => {
-  const response = await fetch(`/api/todos/${id}/complete`, {
+  const response = await apiFetch(`/api/todos/${id}/complete`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ emailOnComplete: emailNow }),
@@ -335,7 +345,7 @@ const completeTodo = async (id, emailNow) => {
 };
 
 const deleteTodo = async (id) => {
-  const response = await fetch(`/api/todos/${id}`, {
+  const response = await apiFetch(`/api/todos/${id}`, {
     method: "DELETE",
   });
 
@@ -346,7 +356,7 @@ const deleteTodo = async (id) => {
 };
 
 const updateTodoNote = async (id, title, notes) => {
-  const response = await fetch(`/api/todos/${id}/notes`, {
+  const response = await apiFetch(`/api/todos/${id}/notes`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, notes }),
@@ -443,6 +453,11 @@ prevPageBtn.addEventListener("click", async () => {
 nextPageBtn.addEventListener("click", async () => {
   currentPage += 1;
   await renderTodos();
+});
+
+logoutBtn.addEventListener("click", async () => {
+  await apiFetch("/api/auth/logout", { method: "POST" });
+  window.location.href = "/login";
 });
 
 renderTodos().catch((error) =>
