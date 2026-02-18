@@ -1,0 +1,23 @@
+[Unit]
+Description=Todo Tracker (TypeScript + SQLite)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/todo-tracker
+EnvironmentFile=/etc/todo-tracker/todo-tracker.env
+ExecStart=/usr/bin/node /var/www/todo-tracker/dist/server.js
+Restart=always
+RestartSec=5
+
+# Harden service process
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/todo-tracker/data
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,30 @@
+{
+  "name": "todo-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Single-user daily task tracker with SQLite, email notifications, and downloadable reports",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.14",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.7.4",
+    "@types/nodemailer": "^6.4.16",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2"
+  }
+}
