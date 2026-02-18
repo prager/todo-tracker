@@ -40,6 +40,11 @@ export const getDb = async (): Promise<Database> => {
 
   const columns = (await db.all("PRAGMA table_info(todos)")) as Array<{ name: string }>;
   const hasNotifyColumn = columns.some((column) => column.name === "notify_on_complete");
+  const hasCreatedAtColumn = columns.some((column) => column.name === "created_at");
+  if (!hasCreatedAtColumn) {
+    await db.exec("ALTER TABLE todos ADD COLUMN created_at TEXT");
+    await db.run("UPDATE todos SET created_at = ? WHERE created_at IS NULL", new Date().toISOString());
+  }
   if (!hasNotifyColumn) {
     await db.exec("ALTER TABLE todos ADD COLUMN notify_on_complete INTEGER NOT NULL DEFAULT 0");
   }

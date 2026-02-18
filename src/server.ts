@@ -12,7 +12,13 @@ import {
   setTodoCompleted,
   updateTodoDetails,
 } from "./db";
-import { sendCompletedTaskEmail, sendCreatedTaskEmail, sendReportEmail } from "./email";
+import {
+  sendCompletedTaskEmail,
+  sendCreatedTaskEmail,
+  sendReopenedTaskEmail,
+  sendReportEmail,
+  sendUpdatedTaskEmail,
+} from "./email";
 import { getCompletedReport, reportToCsv, reportToText } from "./reports";
 import { setupSchedulers } from "./scheduler";
 import type { ReportPeriod } from "./types";
@@ -138,7 +144,12 @@ app.patch("/api/todos/:id/reopen", async (req, res) => {
     return;
   }
 
-  res.json(todo);
+  let emailed = false;
+  if (todo.notify_on_complete === 1) {
+    emailed = await sendReopenedTaskEmail(todo);
+  }
+
+  res.json({ todo, emailed });
 });
 
 app.delete("/api/todos/:id", async (req, res) => {
@@ -187,7 +198,12 @@ app.patch("/api/todos/:id/notes", async (req, res) => {
     return;
   }
 
-  res.json(todo);
+  let emailed = false;
+  if (todo.notify_on_complete === 1) {
+    emailed = await sendUpdatedTaskEmail(todo);
+  }
+
+  res.json({ todo, emailed });
 });
 
 app.get("/api/reports/:period", async (req, res) => {

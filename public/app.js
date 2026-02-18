@@ -15,16 +15,26 @@ const editNoteTaskTitle = document.getElementById("editNoteTaskTitle");
 const editNoteModal = new bootstrap.Modal(editNoteModalElement);
 const sortTitleBtn = document.getElementById("sortTitleBtn");
 const sortDueBtn = document.getElementById("sortDueBtn");
+const sortCreatedBtn = document.getElementById("sortCreatedBtn");
 const sortStatusBtn = document.getElementById("sortStatusBtn");
 const sortTitleIndicator = document.getElementById("sortTitleIndicator");
 const sortDueIndicator = document.getElementById("sortDueIndicator");
+const sortCreatedIndicator = document.getElementById("sortCreatedIndicator");
 const sortStatusIndicator = document.getElementById("sortStatusIndicator");
+const paginationContainer = document.getElementById("paginationContainer");
+const paginationInfo = document.getElementById("paginationInfo");
+const prevPageBtn = document.getElementById("prevPageBtn");
+const nextPageBtn = document.getElementById("nextPageBtn");
 const footerYear = document.getElementById("footerYear");
 let editingTodoId = null;
 const sortState = { key: null, direction: "asc" };
+const pageSize = 12;
+let currentPage = 1;
 
-const showAlert = (type, message, dismissible = false) => {
-  alertBox.className = `alert alert-${type}${dismissible ? " alert-dismissible fade show" : ""}`;
+const showAlert = (type, message, dismissible = true) => {
+  alertBox.className = `alert alert-${type}${
+    dismissible ? " alert-dismissible fade show" : ""
+  }`;
   alertBox.innerHTML = "";
   const messageSpan = document.createElement("span");
   messageSpan.textContent = message;
@@ -123,11 +133,25 @@ const setFooterYear = () => {
 
 const updateSortIndicators = () => {
   sortTitleIndicator.textContent =
-    sortState.key === "title" ? (sortState.direction === "asc" ? "↑" : "↓") : "";
+    sortState.key === "title"
+      ? sortState.direction === "asc"
+        ? "↑"
+        : "↓"
+      : "";
   sortDueIndicator.textContent =
     sortState.key === "due" ? (sortState.direction === "asc" ? "↑" : "↓") : "";
+  sortCreatedIndicator.textContent =
+    sortState.key === "created"
+      ? sortState.direction === "asc"
+        ? "↑"
+        : "↓"
+      : "";
   sortStatusIndicator.textContent =
-    sortState.key === "status" ? (sortState.direction === "asc" ? "↑" : "↓") : "";
+    sortState.key === "status"
+      ? sortState.direction === "asc"
+        ? "↑"
+        : "↓"
+      : "";
 };
 
 const sortTodos = (todos) => {
@@ -140,7 +164,9 @@ const sortTodos = (todos) => {
     let comparison = 0;
 
     if (sortState.key === "title") {
-      comparison = (a.title || "").localeCompare(b.title || "", undefined, { sensitivity: "base" });
+      comparison = (a.title || "").localeCompare(b.title || "", undefined, {
+        sensitivity: "base",
+      });
     } else if (sortState.key === "due") {
       const aHasDue = Boolean(a.due_date);
       const bHasDue = Boolean(b.due_date);
@@ -153,6 +179,8 @@ const sortTodos = (todos) => {
       } else {
         comparison = (a.due_date || "").localeCompare(b.due_date || "");
       }
+    } else if (sortState.key === "created") {
+      comparison = (a.created_at || "").localeCompare(b.created_at || "");
     } else if (sortState.key === "status") {
       const aStatus = a.completed ? "completed" : "open";
       const bStatus = b.completed ? "completed" : "open";
@@ -172,28 +200,61 @@ const setSort = (key) => {
     sortState.key = key;
     sortState.direction = "asc";
   }
+  currentPage = 1;
   updateSortIndicators();
   void renderTodos();
+};
+
+const renderPagination = (totalItems) => {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  if (currentPage > totalPages) {
+    currentPage = totalPages;
+  }
+
+  if (totalItems <= pageSize) {
+    paginationContainer.classList.add("d-none");
+    return;
+  }
+
+  paginationContainer.classList.remove("d-none");
+  paginationInfo.textContent = `Page ${currentPage} of ${totalPages} (${totalItems} tasks)`;
+  prevPageBtn.disabled = currentPage <= 1;
+  nextPageBtn.disabled = currentPage >= totalPages;
 };
 
 const renderTodos = async () => {
   const todos = sortTodos(await fetchTodos());
   todoTable.innerHTML = "";
+  renderPagination(todos.length);
 
   if (todos.length === 0) {
-    todoTable.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No tasks yet.</td></tr>';
+    todoTable.innerHTML =
+      '<tr><td colspan="5" class="text-center text-muted">No tasks yet.</td></tr>';
+    paginationContainer.classList.add("d-none");
     return;
   }
 
-  todos.forEach((todo) => {
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const pageTodos = todos.slice(startIndex, endIndex);
+
+  pageTodos.forEach((todo) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>
         <div class="fw-semibold">${todo.title}</div>
-        <div class="text-muted small" title="${(todo.notes || "").replace(/"/g, "&quot;")}">${truncateText(todo.notes || "", 35)}</div>
+        <div class="text-muted small" title="${(todo.notes || "").replace(
+          /"/g,
+          "&quot;"
+        )}">${truncateText(todo.notes || "", 35)}</div>
       </td>
       <td>${todo.due_date || "-"}</td>
-      <td>${todo.completed ? `Completed (${toDisplayDate(todo.completed_at)})` : "Open"}</td>
+      <td>${toDisplayDate(todo.created_at)}</td>
+      <td>${
+        todo.completed
+          ? `Completed (${toDisplayDate(todo.completed_at)})`
+          : "Open"
+      }</td>
       <td>
         <div class="d-flex gap-2">
           ${
@@ -201,7 +262,7 @@ const renderTodos = async () => {
               ? '<button class="btn btn-sm btn-outline-warning flex-fill" data-action="reopen">Reopen</button>'
               : '<button class="btn btn-sm btn-success flex-fill" data-action="complete">Complete</button>'
           }
-          <button class="btn btn-sm btn-outline-primary flex-fill" data-action="edit-note">Edit note</button>
+          <button class="btn btn-sm btn-outline-primary flex-fill" data-action="edit-note">Edit task</button>
           <button class="btn btn-sm btn-outline-danger flex-fill" data-action="delete">Delete</button>
         </div>
       </td>
@@ -304,7 +365,11 @@ editNoteForm.addEventListener("submit", async (event) => {
   }
 
   try {
-    await updateTodoNote(editingTodoId, editTitleText.value, editNoteText.value);
+    await updateTodoNote(
+      editingTodoId,
+      editTitleText.value,
+      editNoteText.value
+    );
     editNoteModal.hide();
     showAlert("success", "Task updated.", true);
     await renderTodos();
@@ -367,13 +432,31 @@ document.querySelectorAll(".download-btn").forEach((button) => {
   });
 });
 
-renderTodos().catch((error) => showAlert("danger", error.message || "Failed to initialize"));
-loadRecipientEmail().catch((error) => showAlert("danger", error.message || "Failed to load email settings"));
+prevPageBtn.addEventListener("click", async () => {
+  if (currentPage <= 1) {
+    return;
+  }
+  currentPage -= 1;
+  await renderTodos();
+});
+
+nextPageBtn.addEventListener("click", async () => {
+  currentPage += 1;
+  await renderTodos();
+});
+
+renderTodos().catch((error) =>
+  showAlert("danger", error.message || "Failed to initialize")
+);
+loadRecipientEmail().catch((error) =>
+  showAlert("danger", error.message || "Failed to load email settings")
+);
 setDefaultReportStartDate();
 setDefaultDueDate();
 setFooterYear();
 
 sortTitleBtn.addEventListener("click", () => setSort("title"));
 sortDueBtn.addEventListener("click", () => setSort("due"));
+sortCreatedBtn.addEventListener("click", () => setSort("created"));
 sortStatusBtn.addEventListener("click", () => setSort("status"));
 updateSortIndicators();

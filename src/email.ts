@@ -69,6 +69,32 @@ export const sendCreatedTaskEmail = async (task: Todo): Promise<boolean> => {
   return sendMail(`Task Created: ${task.title}`, text);
 };
 
+export const sendReopenedTaskEmail = async (task: Todo): Promise<boolean> => {
+  const text = [
+    "A task was reopened.",
+    "",
+    `Title: ${task.title}`,
+    `Notes: ${task.notes ?? ""}`,
+    `Due date: ${task.due_date ?? ""}`,
+    `Reopened at: ${new Date().toISOString()}`,
+  ].join("\n");
+
+  return sendMail(`Task Reopened: ${task.title}`, text);
+};
+
+export const sendUpdatedTaskEmail = async (task: Todo): Promise<boolean> => {
+  const text = [
+    "A task was edited.",
+    "",
+    `Title: ${task.title}`,
+    `Notes: ${task.notes ?? ""}`,
+    `Due date: ${task.due_date ?? ""}`,
+    `Edited at: ${new Date().toISOString()}`,
+  ].join("\n");
+
+  return sendMail(`Task Updated: ${task.title}`, text);
+};
+
 export const sendReportEmail = async (report: ReportData): Promise<boolean> => {
   const subject = `Todo ${report.period} report: ${report.completedCount} completed`;
   return sendMail(subject, reportToText(report));
