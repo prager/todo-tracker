@@ -1,3 +1,4 @@
+/* update 1 */
 import path from "path";
 import dotenv from "dotenv";
 
@@ -14,7 +15,8 @@ export const config = {
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: Number(process.env.PORT ?? 3000),
   baseUrl: process.env.BASE_URL ?? "http://localhost:3000",
-  dbPath: process.env.DB_PATH ?? path.join(process.cwd(), "data", "todos.sqlite"),
+  dbPath:
+    process.env.DB_PATH ?? path.join(process.cwd(), "data", "todos.sqlite"),
   timezone: process.env.TIMEZONE ?? "UTC",
   smtp: {
     host: process.env.SMTP_HOST,
@@ -30,7 +32,8 @@ export const config = {
     password: process.env.AUTH_PASSWORD_B64
       ? Buffer.from(process.env.AUTH_PASSWORD_B64, "base64").toString("utf-8")
       : process.env.AUTH_PASSWORD ?? "change-me",
-    sessionSecret: process.env.AUTH_SESSION_SECRET ?? "change-this-session-secret",
+    sessionSecret:
+      process.env.AUTH_SESSION_SECRET ?? "change-this-session-secret",
     sessionMaxAgeHours: Number(process.env.AUTH_SESSION_MAX_AGE_HOURS ?? 12),
   },
 };
@@ -41,6 +44,6 @@ export const hasSmtpConfig = (): boolean => {
       config.smtp.port &&
       config.smtp.user &&
       config.smtp.pass &&
-      config.smtp.from,
+      config.smtp.from
   );
 };

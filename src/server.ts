@@ -1,3 +1,4 @@
+/* update 1 */
 import crypto from "crypto";
 import express from "express";
 import path from "path";
@@ -53,7 +54,8 @@ const parseStartDate = (value: string | undefined): Date | null => {
   return parsed;
 };
 
-const isValidEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+const isValidEmail = (value: string): boolean =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
 const parseCookies = (header: string | undefined): Record<string, string> => {
   if (!header) {
@@ -71,12 +73,18 @@ const parseCookies = (header: string | undefined): Record<string, string> => {
 };
 
 const signValue = (value: string): string => {
-  return crypto.createHmac("sha256", config.auth.sessionSecret).update(value).digest("hex");
+  return crypto
+    .createHmac("sha256", config.auth.sessionSecret)
+    .update(value)
+    .digest("hex");
 };
 
 const createAuthToken = (username: string): string => {
-  const expiresAt = Date.now() + config.auth.sessionMaxAgeHours * 60 * 60 * 1000;
-  const payload = Buffer.from(JSON.stringify({ u: username, e: expiresAt })).toString("base64url");
+  const expiresAt =
+    Date.now() + config.auth.sessionMaxAgeHours * 60 * 60 * 1000;
+  const payload = Buffer.from(
+    JSON.stringify({ u: username, e: expiresAt })
+  ).toString("base64url");
   const signature = signValue(payload);
   return `${payload}.${signature}`;
 };
@@ -99,7 +107,9 @@ const readAuthUser = (req: express.Request): string | null => {
   }
 
   try {
-    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf-8")) as {
+    const parsed = JSON.parse(
+      Buffer.from(payload, "base64url").toString("utf-8")
+    ) as {
       u?: string;
       e?: number;
     };
@@ -120,7 +130,9 @@ const setAuthCookie = (res: express.Response, username: string) => {
   const secure = config.nodeEnv === "production";
   res.setHeader(
     "Set-Cookie",
-    `${authCookieName}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? "; Secure" : ""}`,
+    `${authCookieName}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${
+      secure ? "; Secure" : ""
+    }`
   );
 };
 
@@ -128,11 +140,17 @@ const clearAuthCookie = (res: express.Response) => {
   const secure = config.nodeEnv === "production";
   res.setHeader(
     "Set-Cookie",
-    `${authCookieName}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure ? "; Secure" : ""}`,
+    `${authCookieName}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${
+      secure ? "; Secure" : ""
+    }`
   );
 };
 
-const requireApiAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const requireApiAuth = (
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+) => {
   const user = readAuthUser(req);
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -141,7 +159,11 @@ const requireApiAuth = (req: express.Request, res: express.Response, next: expre
   next();
 };
 
-const requireWebAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const requireWebAuth = (
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+) => {
   const user = readAuthUser(req);
   if (!user) {
     res.redirect("/login");
@@ -159,8 +181,10 @@ app.get("/login", (req, res) => {
 });
 
 app.post("/api/auth/login", (req, res) => {
-  const username = typeof req.body.username === "string" ? req.body.username.trim() : "";
-  const password = typeof req.body.password === "string" ? req.body.password : "";
+  const username =
+    typeof req.body.username === "string" ? req.body.username.trim() : "";
+  const password =
+    typeof req.body.password === "string" ? req.body.password : "";
 
   if (username !== config.auth.username || password !== config.auth.password) {
     res.status(401).json({ error: "Invalid credentials" });
@@ -222,7 +246,8 @@ app.get("/api/todos", async (req, res) => {
 app.post("/api/todos", async (req, res) => {
   const title = typeof req.body.title === "string" ? req.body.title.trim() : "";
   const notes = typeof req.body.notes === "string" ? req.body.notes : undefined;
-  const dueDate = typeof req.body.dueDate === "string" ? req.body.dueDate : undefined;
+  const dueDate =
+    typeof req.body.dueDate === "string" ? req.body.dueDate : undefined;
   const emailOnCreate = Boolean(req.body.emailOnCreate);
 
   if (!title) {
@@ -230,7 +255,12 @@ app.post("/api/todos", async (req, res) => {
     return;
   }
 
-  const todo = await createTodo({ title, notes, dueDate, notifyOnComplete: emailOnCreate });
+  const todo = await createTodo({
+    title,
+    notes,
+    dueDate,
+    notifyOnComplete: emailOnCreate,
+  });
   let emailed = false;
   if (emailOnCreate) {
     emailed = await sendCreatedTaskEmail(todo);
@@ -322,7 +352,11 @@ app.patch("/api/todos/:id/notes", async (req, res) => {
   }
 
   const normalizedNotes = req.body.notes.trim();
-  const todo = await updateTodoDetails(id, normalizedTitle, normalizedNotes.length ? normalizedNotes : null);
+  const todo = await updateTodoDetails(
+    id,
+    normalizedTitle,
+    normalizedNotes.length ? normalizedNotes : null
+  );
   if (!todo) {
     res.status(404).json({ error: "Todo not found" });
     return;
@@ -343,7 +377,8 @@ app.get("/api/reports/:period", async (req, res) => {
     return;
   }
 
-  const startDateRaw = typeof req.query.startDate === "string" ? req.query.startDate : undefined;
+  const startDateRaw =
+    typeof req.query.startDate === "string" ? req.query.startDate : undefined;
   const referenceDate = parseStartDate(startDateRaw);
   if (startDateRaw && !referenceDate) {
     res.status(400).json({ error: "Invalid startDate. Use YYYY-MM-DD." });
@@ -361,7 +396,8 @@ app.post("/api/reports/:period/email", async (req, res) => {
     return;
   }
 
-  const startDateRaw = typeof req.body.startDate === "string" ? req.body.startDate : undefined;
+  const startDateRaw =
+    typeof req.body.startDate === "string" ? req.body.startDate : undefined;
   const referenceDate = parseStartDate(startDateRaw);
   if (startDateRaw && !referenceDate) {
     res.status(400).json({ error: "Invalid startDate. Use YYYY-MM-DD." });
@@ -381,7 +417,8 @@ app.get("/api/reports/:period/download", async (req, res) => {
   }
 
   const format = req.query.format === "csv" ? "csv" : "txt";
-  const startDateRaw = typeof req.query.startDate === "string" ? req.query.startDate : undefined;
+  const startDateRaw =
+    typeof req.query.startDate === "string" ? req.query.startDate : undefined;
   const referenceDate = parseStartDate(startDateRaw);
   if (startDateRaw && !referenceDate) {
     res.status(400).json({ error: "Invalid startDate. Use YYYY-MM-DD." });
@@ -395,7 +432,10 @@ app.get("/api/reports/:period/download", async (req, res) => {
   if (format === "csv") {
     const csv = reportToCsv(report);
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename=\"${filename}\"`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=\"${filename}\"`
+    );
     res.send(csv);
     return;
   }

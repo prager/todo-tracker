@@ -1,3 +1,4 @@
+/* update 1 */
 const loginForm = document.getElementById("loginForm");
 const loginAlert = document.getElementById("loginAlert");
 

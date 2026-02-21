@@ -1,3 +1,4 @@
+/* update 3 */
 import nodemailer from "nodemailer";
 import { config, hasSmtpConfig } from "./config";
 import { getEmailRecipient } from "./db";
